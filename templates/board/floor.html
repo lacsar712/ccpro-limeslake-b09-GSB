@@ -108,20 +108,75 @@
         action="{{ url_for('board.pond_ops', pond_id=selected.id) }}"
         data-controller="form-hint"
       >
-        <label>登记 / 修正峰值温度 ℃
+        {% set peak_can_fill = selected.status == 'slaking' and selected_batch.peak_temp_c is none %}
+        {% set peak_admin_edit = selected.status == 'slaking' and selected_batch.peak_temp_c is not none and current_user.is_admin %}
+        {% set peak_worker_readonly = selected.status == 'slaking' and selected_batch.peak_temp_c is not none and not current_user.is_admin %}
+
+        {% if selected.status == 'drawn' %}
+        <label>峰值温度 ℃（已锁定）
           <input
             name="peak_temp_c"
             type="number"
             step="0.1"
             value="{{ selected_batch.peak_temp_c if selected_batch.peak_temp_c is not none else '' }}"
-            placeholder="例如 72"
+            readonly
+            aria-readonly="true"
           />
         </label>
+        <p class="hint">该池已出灰，峰值全员只读，不得再修改。</p>
+        {% elif peak_can_fill %}
+        <label>首次登记峰值温度 ℃
+          <input
+            name="peak_temp_c"
+            type="number"
+            step="0.1"
+            value=""
+            placeholder="例如 72"
+            required
+          />
+        </label>
+        <p class="hint">熟化中、峰值仍空：操作工可写入首次峰值；提交后不可自行修改。</p>
+        {% elif peak_admin_edit %}
+        <label>修正峰值温度 ℃（管理员）
+          <input
+            name="peak_temp_c"
+            type="number"
+            step="0.1"
+            value="{{ selected_batch.peak_temp_c }}"
+            required
+          />
+        </label>
+        <p class="hint">已有峰值仅管理员可修正，每次修正都会记入峰值审计。</p>
+        {% elif peak_worker_readonly %}
+        <label>峰值温度 ℃（只读）
+          <input
+            name="peak_temp_c"
+            type="number"
+            step="0.1"
+            value="{{ selected_batch.peak_temp_c }}"
+            readonly
+            aria-readonly="true"
+          />
+        </label>
+        <p class="hint">峰值已记录，操作工无权修改；如需修正请联系管理员。</p>
+        {% else %}
+        <label>峰值温度 ℃
+          <input
+            name="peak_temp_c"
+            type="number"
+            step="0.1"
+            value="{{ selected_batch.peak_temp_c if selected_batch.peak_temp_c is not none else '' }}"
+            disabled
+          />
+        </label>
+        <p class="hint">仅熟化中的批次可以登记峰值温度。</p>
+        {% endif %}
+
         <label>批次备注
           <textarea name="batch_notes" rows="2">{{ selected_batch.notes }}</textarea>
         </label>
         <label>池状态
-          <select name="status" data-form-hint-target="status">
+          <select name="status" data-form-hint-target="status" {% if selected.status == 'drawn' %}disabled{% endif %}>
             {% for key, label in status_labels.items() %}
             <option value="{{ key }}" {% if selected.status == key %}selected{% endif %}>{{ label }}</option>
             {% endfor %}

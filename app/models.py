@@ -13,10 +13,17 @@ def utcnow():
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
+    ROLE_ADMIN = "admin"
+    ROLE_WORKER = "worker"
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="worker")
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == self.ROLE_ADMIN
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -75,3 +82,27 @@ class SlakeBatch(db.Model):
     notes = db.Column(db.Text, nullable=False, default="")
 
     pond = db.relationship("Pond", back_populates="batches")
+    peak_audit_logs = db.relationship(
+        "PeakAuditLog",
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        order_by="PeakAuditLog.changed_at.desc()",
+    )
+
+
+class PeakAuditLog(db.Model):
+    """峰值温度写入审计：每次首填/修正记一行。"""
+
+    __tablename__ = "peak_audit_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(
+        db.Integer, db.ForeignKey("slake_batches.id"), nullable=False
+    )
+    changed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    old_value_c = db.Column(db.Float, nullable=True)
+    new_value_c = db.Column(db.Float, nullable=True)
+    changed_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    batch = db.relationship("SlakeBatch", back_populates="peak_audit_logs")
+    changed_by = db.relationship("User")

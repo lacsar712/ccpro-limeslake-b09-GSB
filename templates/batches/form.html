@@ -21,9 +21,22 @@
   <label>目标温度 ℃
     <input name="target_temp_c" type="number" step="0.1" value="{{ batch.target_temp_c if batch else 80 }}" required />
   </label>
-  <label>峰值温度 ℃（可空）
-    <input name="peak_temp_c" type="number" step="0.1" value="{{ batch.peak_temp_c if batch and batch.peak_temp_c is not none else '' }}" />
+  {% set peak_exists = batch and batch.peak_temp_c is not none %}
+  {% set peak_readonly = batch and (batch.pond.status == 'drawn' or (peak_exists and not current_user.is_admin)) %}
+  <label>峰值温度 ℃（熟化中才可填写；留空表示暂不登记/不改动）
+    <input name="peak_temp_c" type="number" step="0.1"
+      value="{{ batch.peak_temp_c if peak_exists else '' }}"
+      {% if peak_readonly %}readonly aria-readonly="true"{% endif %} />
   </label>
+  <p class="hint">
+    {% if batch and batch.pond.status == 'drawn' %}
+      该池已出灰，峰值全员只读。
+    {% elif peak_exists and not current_user.is_admin %}
+      峰值已记录，操作工无权修改，请联系管理员修正。
+    {% else %}
+      操作工只能对熟化中、峰值仍空的批次首填；已有峰值仅管理员可修正；已出灰后只读。每次写入都会进入峰值审计。
+    {% endif %}
+  </p>
   <label>备注
     <textarea name="notes" rows="3">{{ batch.notes if batch else '' }}</textarea>
   </label>

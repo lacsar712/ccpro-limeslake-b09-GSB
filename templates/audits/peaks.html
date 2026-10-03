@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}峰值审计{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>峰值审计</h1>
+    <p>近七日峰值温度的首次登记与修正记录（谁、何时、旧值、新值）。</p>
+  </div>
+</header>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>时间</th>
+      <th>操作人</th>
+      <th>角色</th>
+      <th>厂区 / 池号 / 批次</th>
+      <th>旧值 ℃</th>
+      <th>新值 ℃</th>
+      <th>类型</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for log in logs %}
+    <tr>
+      <td>{{ log.changed_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ log.changed_by.username }}</td>
+      <td>{{ '管理员' if log.changed_by.role == 'admin' else '操作工' }}</td>
+      <td>
+        {{ log.batch.pond.plant.name }} · {{ log.batch.pond.code }}
+        · 批次 #{{ log.batch_id }}
+      </td>
+      <td>{% if log.old_value_c is none %}<em>空（首填）</em>{% else %}{{ '%.1f'|format(log.old_value_c) }}{% endif %}</td>
+      <td>{{ '%.1f'|format(log.new_value_c) }}</td>
+      <td>{% if log.old_value_c is none %}首填{% else %}修正{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">近七日暂无峰值写入记录</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

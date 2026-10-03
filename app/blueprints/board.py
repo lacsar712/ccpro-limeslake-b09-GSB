@@ -1,9 +1,15 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 
 from app.extensions import db
 from app.models import Plant, Pond
-from app.services.rules import RuleError, assert_can_set_pond_status, latest_batch_for_pond
+from app.services.rules import (
+    RuleError,
+    apply_peak_change,
+    assert_can_set_pond_status,
+    latest_batch_for_pond,
+    lock_pond_and_latest_batch,
+)
 
 bp = Blueprint("board", __name__, url_prefix="/board")
 
@@ -60,32 +66,32 @@ def floor_plan():
 @bp.route("/ponds/<int:pond_id>/ops", methods=["POST"])
 @login_required
 def pond_ops(pond_id: int):
-    pond = Pond.query.get_or_404(pond_id)
-    status = request.form.get("status") or pond.status
     peak_raw = (request.form.get("peak_temp_c") or "").strip()
     notes = (request.form.get("batch_notes") or "").strip()
+    status = request.form.get("status") or ""
 
-    batch = latest_batch_for_pond(pond)
+    # 先锁池与最近批次，再做任何读写，杜绝两人并发改出两版峰值。
+    pond, batch = lock_pond_and_latest_batch(pond_id)
     if batch is None:
+        db.session.rollback()
         flash("该池尚无熟化批次，无法登记峰值或出灰", "error")
         return redirect(
             url_for("board.floor_plan", plant_id=pond.plant_id, pond=pond.id)
         )
 
-    if peak_raw:
-        try:
-            batch.peak_temp_c = float(peak_raw)
-        except ValueError:
-            flash("峰值温度格式无效", "error")
-            return redirect(
-                url_for("board.floor_plan", plant_id=pond.plant_id, pond=pond.id)
-            )
-
-    batch.notes = notes
+    target_status = status or pond.status
 
     try:
-        assert_can_set_pond_status(pond, status)
-        pond.status = status
+        if peak_raw:
+            try:
+                new_peak = float(peak_raw)
+            except ValueError:
+                raise RuleError("峰值温度格式无效")
+            apply_peak_change(batch, new_peak, current_user)
+
+        batch.notes = notes
+        assert_can_set_pond_status(pond, target_status)
+        pond.status = target_status
         db.session.commit()
         flash(f"{pond.code} 已更新", "ok")
     except RuleError as exc:

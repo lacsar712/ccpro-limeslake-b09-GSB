@@ -27,6 +27,7 @@ def create_app() -> Flask:
     def load_user(user_id: str):
         return db.session.get(User, int(user_id))
 
+    from app.blueprints.audits import bp as audits_bp
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.board import bp as board_bp
     from app.blueprints.batches import bp as batches_bp
@@ -36,6 +37,7 @@ def create_app() -> Flask:
     app.register_blueprint(board_bp)
     app.register_blueprint(ponds_bp)
     app.register_blueprint(batches_bp)
+    app.register_blueprint(audits_bp)
 
     @app.route("/")
     def index():
@@ -81,7 +83,7 @@ def seed_demo_data() -> None:
     db.session.flush()
 
     p1 = Pond(plant=plant, code="P-01", status=Pond.STATUS_SLAKING, capacity_m3=48.0)
-    p2 = Pond(plant=plant, code="P-02", status=Pond.STATUS_FILLING, capacity_m3=36.0)
+    p2 = Pond(plant=plant, code="P-02", status=Pond.STATUS_SLAKING, capacity_m3=36.0)
     p3 = Pond(plant=plant, code="P-03", status=Pond.STATUS_DRAWN, capacity_m3=40.0)
     p4 = Pond(plant=plant, code="P-04", status=Pond.STATUS_SLAKING, capacity_m3=42.0)
     p5 = Pond(plant=plant, code="P-05", status=Pond.STATUS_FILLING, capacity_m3=38.0)
@@ -104,7 +106,7 @@ def seed_demo_data() -> None:
                 started_at=now - timedelta(hours=2),
                 target_temp_c=80.0,
                 peak_temp_c=None,
-                notes="注水中，尚未测得峰值",
+                notes="熟化中，尚未测得峰值",
             ),
             SlakeBatch(
                 pond=p3,
