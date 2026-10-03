@@ -108,15 +108,51 @@
         action="{{ url_for('board.pond_ops', pond_id=selected.id) }}"
         data-controller="form-hint"
       >
-        <label>登记 / 修正峰值温度 ℃
-          <input
-            name="peak_temp_c"
-            type="number"
-            step="0.1"
-            value="{{ selected_batch.peak_temp_c if selected_batch.peak_temp_c is not none else '' }}"
-            placeholder="例如 72"
-          />
-        </label>
+        {% set peak_val = selected_batch.peak_temp_c %}
+        {% if selected.status == 'slaking' %}
+          {% if peak_val is none %}
+            {# 峰值仍空：操作工与管理员都可首填 #}
+            <label>首次登记峰值温度 ℃
+              <input
+                name="peak_temp_c"
+                type="number"
+                step="0.1"
+                value=""
+                placeholder="例如 72"
+              />
+            </label>
+            <input type="hidden" name="peak_version" value="0" />
+            <p class="hint">峰值首填后操作工不可再改，修正须管理员。</p>
+          {% elif current_user.is_admin %}
+            {# 熟化中且已有峰值：仅管理员可改写，带版本号防并发互踩 #}
+            <label>修正峰值温度 ℃（管理员）
+              <input
+                name="peak_temp_c"
+                type="number"
+                step="0.1"
+                value="{{ peak_val }}"
+              />
+            </label>
+            <input type="hidden" name="peak_version" value="{{ selected_batch.peak_version }}" />
+            <p class="hint">当前为已有峰值的修正，提交会记入峰值审计。</p>
+          {% else %}
+            {# 工人视角：纯展示，不渲染任何可提交的峰值字段 #}
+            <div class="readonly-peak">
+              <span class="readonly-label">峰值温度 ℃</span>
+              <strong>{{ '%.1f'|format(peak_val) }}</strong>
+              <p class="hint">峰值已登记，操作工不可改写；如需修正请联系管理员。</p>
+            </div>
+          {% endif %}
+        {% else %}
+          {# 非熟化中（注水中 / 已出灰）：峰值全员只读，无输入字段 #}
+          <div class="readonly-peak">
+            <span class="readonly-label">峰值温度 ℃</span>
+            <strong>{% if peak_val is not none %}{{ '%.1f'|format(peak_val) }}{% else %}未记录{% endif %}</strong>
+            <p class="hint">
+              {% if selected.status == 'drawn' %}已出灰，峰值全员只读。{% else %}池位未在熟化中，暂不可登记峰值。{% endif %}
+            </p>
+          </div>
+        {% endif %}
         <label>批次备注
           <textarea name="batch_notes" rows="2">{{ selected_batch.notes }}</textarea>
         </label>

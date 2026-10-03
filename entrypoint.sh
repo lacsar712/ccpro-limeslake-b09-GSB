@@ -29,12 +29,26 @@ else:
 PY
 
 python << 'PY'
+from sqlalchemy import inspect, text
+
 from app import create_app, seed_demo_data
 from app.extensions import db
 
 app = create_app()
 with app.app_context():
+    # 新表（如 peak_audits）直接建出。
     db.create_all()
+
+    # 旧库幂等补列：db.create_all() 不会改动已存在的表结构。
+    inspector = inspect(db.engine)
+    batch_cols = {c["name"] for c in inspector.get_columns("slake_batches")}
+    if "peak_version" not in batch_cols:
+        with db.engine.begin() as conn:
+            conn.execute(
+                text("ALTER TABLE slake_batches ADD COLUMN peak_version INTEGER NOT NULL DEFAULT 0")
+            )
+        print("added slake_batches.peak_version")
+
     seed_demo_data()
     print("migrate/seed done")
 PY

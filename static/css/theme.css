@@ -348,6 +348,45 @@ button:hover, .btn:hover { background: #1e293b; }
 
 .hint { color: var(--muted); font-size: 0.88rem; margin: 0; }
 
+.readonly-peak {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: rgba(226, 232, 240, 0.45);
+}
+
+.readonly-peak .readonly-label {
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.readonly-peak strong {
+  font-size: 1.4rem;
+  color: var(--slate-deep);
+}
+
+.nav-user {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.audit-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.audit-first { background: var(--slake-bg); color: var(--slake-ink); }
+.audit-edit { background: #fef3c7; color: #92400e; }
+
+.muted { color: var(--muted); }
+
 .flash-stack { margin-bottom: 16px; display: grid; gap: 8px; }
 .flash { padding: 10px 12px; border-radius: 8px; }
 .flash-error { background: #fee2e2; color: var(--danger); }

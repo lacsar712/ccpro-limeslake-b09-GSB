@@ -27,6 +27,7 @@ def create_app() -> Flask:
     def load_user(user_id: str):
         return db.session.get(User, int(user_id))
 
+    from app.blueprints.audit import bp as audit_bp
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.board import bp as board_bp
     from app.blueprints.batches import bp as batches_bp
@@ -36,6 +37,7 @@ def create_app() -> Flask:
     app.register_blueprint(board_bp)
     app.register_blueprint(ponds_bp)
     app.register_blueprint(batches_bp)
+    app.register_blueprint(audit_bp)
 
     @app.route("/")
     def index():

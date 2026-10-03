@@ -13,10 +13,17 @@ def utcnow():
 class User(UserMixin, db.Model):
     __tablename__ = "users"
 
+    ROLE_ADMIN = "admin"
+    ROLE_WORKER = "worker"
+
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="worker")
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == self.ROLE_ADMIN
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -72,6 +79,42 @@ class SlakeBatch(db.Model):
     started_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     target_temp_c = db.Column(db.Float, nullable=False, default=80.0)
     peak_temp_c = db.Column(db.Float, nullable=True)
+    # 乐观锁：每次峰值成功写入 +1。两人几乎同时改同一条已有峰值时，
+    # 客户端必须带上打开抽屉时看到的版本号，只有一版能匹配生效。
+    peak_version = db.Column(db.Integer, nullable=False, default=0)
     notes = db.Column(db.Text, nullable=False, default="")
 
     pond = db.relationship("Pond", back_populates="batches")
+    peak_audits = db.relationship(
+        "PeakAudit",
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        order_by="desc(PeakAudit.changed_at)",
+    )
+
+
+class PeakAudit(db.Model):
+    """峰值温度写入审计：只在峰值真正落库后追加一行。"""
+
+    __tablename__ = "peak_audits"
+
+    ACTION_FIRST = "first"
+    ACTION_EDIT = "edit"
+
+    id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(
+        db.Integer, db.ForeignKey("slake_batches.id"), nullable=False, index=True
+    )
+    pond_id = db.Column(db.Integer, nullable=False, index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    # 冗余操作工名，账号删除后审计仍能读
+    actor_name = db.Column(db.String(64), nullable=False, default="")
+    action = db.Column(db.String(10), nullable=False, default=ACTION_FIRST)
+    old_value = db.Column(db.Float, nullable=True)
+    new_value = db.Column(db.Float, nullable=False)
+    changed_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, default=utcnow, index=True
+    )
+
+    batch = db.relationship("SlakeBatch", back_populates="peak_audits")
+    actor = db.relationship("User")

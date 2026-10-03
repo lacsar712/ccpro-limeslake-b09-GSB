@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}峰值审计{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>峰值写入审计</h1>
+    <p>近七日（自 {{ since.strftime('%Y-%m-%d %H:%M') }} 起）谁、何时、把峰值由多少改成多少。</p>
+  </div>
+</header>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>时间</th>
+      <th>操作人</th>
+      <th>池号</th>
+      <th>批次</th>
+      <th>类型</th>
+      <th>旧值 ℃</th>
+      <th>新值 ℃</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for rec in records %}
+    <tr>
+      <td>{{ rec.changed_at.strftime('%Y-%m-%d %H:%M:%S') if rec.changed_at else '—' }}</td>
+      <td>{{ rec.actor_name or ('用户#' ~ rec.actor_id if rec.actor_id else '—') }}</td>
+      <td>{{ rec.batch.pond.code if rec.batch else '#' ~ rec.pond_id }}</td>
+      <td>#{{ rec.batch_id }}</td>
+      <td>
+        <span class="audit-tag audit-{{ rec.action }}">{{ action_labels.get(rec.action, rec.action) }}</span>
+      </td>
+      <td>{% if rec.old_value is not none %}{{ '%.1f'|format(rec.old_value) }}{% else %}<span class="muted">空</span>{% endif %}</td>
+      <td><strong>{{ '%.1f'|format(rec.new_value) }}</strong></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">近七日暂无峰值写入记录</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
